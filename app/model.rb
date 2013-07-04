@@ -1,167 +1,163 @@
 class Model
+  include ValueTransformer
+
+  # All objects are instances of NSString, NSNumber, NSArray, NSDictionary, or NSNull.
+  register_value_transformer :type => :boolean,
+                             :to => (lambda {|value| !!value}),
+                             :from => (lambda {|value| value})
+
+  register_value_transformer :type => :integer,
+                             :to => (lambda {|value| value.to_i}),
+                             :from => (lambda {|value| value})
+
+  register_value_transformer :type => :float,
+                             :to => (lambda {|value| value.to_f}),
+                             :from => (lambda {|value| value})
+
+  register_value_transformer :type => :date,
+                             :to => (lambda {|value| value.is_a?(Time) ? value : date_formatter.dateFromString(value.to_s)}),
+                             :from => (lambda {|value| date_formatter.stringFromDate(value)})
+
+  register_value_transformer :type => :url,
+                             :to => (lambda {|value| value.is_a?(NSURL) ? value : NSURL.URLWithString(value.to_s)}),
+                             :from => (lambda {|value| value.to_s})
+
+  register_value_transformer :type => :string,
+                             :to => (lambda {|value| value.to_s}),
+                             :from => (lambda {|value| value})
 
   class << self
 
-    def value_transformers
-      @@value_transformers ||= {}
+    def attributes
+      @attributes ||= []
     end
 
-    def register_value_transformer(options)
-      format = options[:format]
-      to = options[:to]
-      return if self.value_transformers.has_key? format
-      self.value_transformers[format] = to
-    end
+    def set_attribute(attribute)
+      name = attribute[:name]
+      type = attribute[:type]
+      default = attribute[:default]
+      key_path = attribute[:key_path]
 
-    attr_accessor :attributes
+      attr_accessor name
 
-    def get_attributes
-      attributes = {}
-      current_class = self
-      while current_class.respond_to?(:attributes)
-        attributes.merge!(current_class.attributes || {})
-        current_class = current_class.superclass
+      # getter
+      define_method("#{name}") do
+        self.instance_variable_set("@#{name}", self.instance_variable_get("@#{name}") || default)
       end
-      attributes
-    end
 
-    def set_attributes(attributes)
-      attributes.each do |name, type|
-        attr_accessor name
-
-        # setter
-        define_method("#{name}=") do |value|
-          transformer = self.class.value_transformers[type]
-          new_value = transformer.call(value) if transformer
-          self.willChangeValueForKey name
-          self.instance_variable_set("@#{name}", new_value)
-          self.didChangeValueForKey name
-        end
+      # setter
+      define_method("#{name}=") do |value|
+        transformer = self.class.value_transformers[type][:to]
+        new_value = transformer.call(value) if transformer
+        self.willChangeValueForKey name
+        self.instance_variable_set("@#{name}", new_value)
+        self.didChangeValueForKey name
       end
-      self.attributes ||= {}
-      self.attributes.merge!(attributes)
+
+      self.attributes << attribute
     end
 
-    attr_accessor :relationships
+    def relationships
+      @relationships ||= []
+    end
 
-    def get_relationships
-      current_class = self
-      relationships = {}
-      while current_class.respond_to?(:relationships)
-        relationships.merge!(current_class.relationships || {})
-        current_class = current_class.superclass
+    def set_relationship(relationship)
+      name = relationship[:name]
+      class_name = relationship[:class_name]
+      key_path = relationship[:key_path]
+
+      attr_accessor name
+
+      # setter
+      define_method("#{name}=") do |value|
+        cls = Kernel.const_get(class_name.capitalize)
+        new_value = case value
+        when Hash
+          cls.include?(IdentityMap) ? cls.merge_or_insert(value) : cls.new(value)
+        when Array
+          value.map {|e| (e.is_a?(cls) ? e : (cls.include?(IdentityMap) ? cls.merge_or_insert(e) : cls.new(e)))}
+        when cls
+          value
+        else
+          nil
+        end if value
+
+        self.willChangeValueForKey name
+        self.instance_variable_set("@#{name}", new_value)
+        self.didChangeValueForKey name
       end
-      relationships
-    end
 
-    def set_relationships(relationships)
-      relationships.each do |name, type|
-
-        attr_accessor name
-
-        # override setter
-        define_method("#{name}=") do |value|
-          cls = Kernel.const_get(type.capitalize)
-
-          new_value = case value
-            when Hash
-              cls.merge_or_insert value
-            when Array
-              value.map {|e| e.is_a?(cls) ? e : cls.merge_or_insert(e)}
-            when cls
-              value
-            else
-              nil
-            end if value
-
-          self.willChangeValueForKey name
-          self.instance_variable_set("@#{name}", new_value)
-          self.didChangeValueForKey name
-        end
-      end
-      self.relationships ||= {}
-      self.relationships.merge!(relationships)
-    end
-
-    def identity_map
-      @@identity_map ||= Hash.new do |map, key|
-        map[key] = {}
-      end
-    end
-
-    def merge_or_insert(json)
-      return nil unless json && json.has_key?("id")
-      new_model = self.new json
-      old_model = self.identity_map[self.to_s][new_model.id]
-      self.identity_map[self.to_s][new_model.id] = new_model unless old_model
-      old_model.merge_with_model(new_model) if old_model
-      (old_model || new_model)
+      self.relationships << relationship
     end
   end
 
-  register_value_transformer :format => :boolean,
-                             :to => (lambda do |value|
-                                      !!value
-                                    end)
-  register_value_transformer :format => :integer,
-                             :to => (lambda do |value|
-                                      value.to_i
-                                    end)
-  register_value_transformer :format => :float,
-                             :to => (lambda do |value|
-                                      value.to_f
-                                    end)
+  def to_hash
+    # TODO
+    hash = {}
+    self.class.attributes.each do |attribute|
+      name = attribute[:name]
+      key_path = attribute[:key_path]
+      type = attribute[:type]
+      default = attribute[:default]
 
-  register_value_transformer :format => :date,
-                             :to => (lambda do |value|
-                                      value.is_a?(Time) ? value : Time.iso8601_with_timezone(value.to_s)
-                                    end)
+      # grab value
+      model_value = self.send("#{name}")
 
-  register_value_transformer :format => :url,
-                             :to => (lambda do |value|
-                                      value.is_a?(NSURL) ? value : NSURL.URLWithString(value.to_s)
-                                    end)
+      # create intermediate hashes
+      components = key_path.split(".")
+      inner_hash = hash
+      components.each_with_index do |component, index|
+        if index == components.count-1
+          transformer = self.class.value_transformers[type][:from]
+          inner_hash[component] = transformer.call(model_value)
+        else
+          hash[component] ||= Hash.new
+          inner_hash = hash[component]
+        end
+      end
+    end
 
-  register_value_transformer :format => :string,
-                             :to => (lambda do |value|
-                                      value.to_s
-                                    end)
+    self.class.relationships.each do |relationship|
+      name = relationship[:name]
+      key_path = relationship[:key_path]
+      class_name = relationship[:class_name]
 
+      model_value = self.send("#{name}")
 
-  set_attributes :id => :integer
+      components = key_path.split(".")
+      inner_hash = hash
+      components.each_with_index do |component, index|
+        if index == components.count-1
+          inner_hash[component] = case model_value
+          when Array
+            model_value.map {|e| e.to_hash}
+          when Model
+            model_value.to_hash
+          else
+          end
+        else
+          hash[component] ||= Hash.new
+          inner_hash = hash[component]
+        end
+      end
+    end
 
-  def initialize(json)
-    self.class.get_relationships.each do |name, type|
-      json_value = json[name.to_s]
+    hash
+  end
+
+  def initialize(json={})
+    self.class.relationships.each do |relationship|
+      name = relationship[:name]
+      key_path = relationship[:key_path]
+      json_value = json.valueForKeyPath(key_path)
       self.send("#{name}=", json_value) unless json_value.nil?
     end
 
-    self.class.get_attributes.each do |name, type|
-      json_value = json[name.to_s]
+    self.class.attributes.each do |attribute|
+      name = attribute[:name]
+      key_path = attribute[:key_path]
+      json_value = json.valueForKeyPath(key_path)
       self.send("#{name}=", json_value) unless json_value.nil?
     end
   end
-
-  def merge_with_model(model)
-    return false unless self.is_a?(model.class)
-    self.class.get_relationships.each do |name, type|
-      model_value = model.send("#{name}")
-      self.send("#{name}=", model_value) unless model_value.nil?
-    end
-
-    self.class.get_attributes.each do |name, type|
-      model_value = model.send("#{name}")
-      self.send("#{name}=", model_value) unless model_value.nil?
-    end
-  end
-
-  def ==(other)
-    return false unless self.is_a?(other.class)
-    self.id == other.id
-  end
-
-  def hash
-    self.id.hash
-  end
-
 end
