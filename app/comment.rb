@@ -11,8 +11,4 @@ class Comment < Model
     type: :string,
     default: "",
     key_path: "comment.text"
-
-  def primary_key
-    self.id
-  end
 end

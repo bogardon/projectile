@@ -20,8 +20,4 @@ class Post < Model
   set_relationship name: :comments,
     class_name: :Comment,
     key_path: "post.comments"
-
-  def primary_key
-    self.id
-  end
 end
