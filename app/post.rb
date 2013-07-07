@@ -19,5 +19,6 @@ class Post < Model
 
   set_relationship name: :comments,
     class_name: :Comment,
+    default: [],
     key_path: "post.comments"
 end

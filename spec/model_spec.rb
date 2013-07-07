@@ -37,6 +37,7 @@ describe "Model" do
       @empty_post.id.should == -1
       @empty_post.title.should == ""
       @empty_post.body.should == ""
+      @empty_post.comments.should == []
     end
   end
 
