@@ -36,7 +36,7 @@ class Model
       name = attribute[:name]
       type = attribute[:type]
       default = attribute[:default]
-      key_path = attribute[:key_path]
+      attribute[:key_path] ||= name
 
       attr_accessor name
 
@@ -64,7 +64,8 @@ class Model
     def set_relationship(relationship)
       name = relationship[:name]
       class_name = relationship[:class_name]
-      key_path = relationship[:key_path]
+      default = relationship[:default]
+      relationship[:key_path] ||= name
 
       attr_accessor name
 

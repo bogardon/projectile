@@ -4,8 +4,6 @@ module IdentityMap
     base.extend(ClassMethods)
   end
 
-
-
   module ClassMethods
     def metaclass
       class << self; self; end
