@@ -68,6 +68,11 @@ class Model
 
       attr_accessor name
 
+      # getter
+      define_method("#{name}") do
+        self.instance_variable_set("@#{name}", self.instance_variable_get("@#{name}") || default)
+      end
+
       # setter
       define_method("#{name}=") do |value|
         cls = Kernel.const_get(class_name.capitalize)
