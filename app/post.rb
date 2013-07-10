@@ -17,6 +17,10 @@ class Post < Model
    default: "",
    key_path: "post.body"
 
+  set_attribute name: :created_at,
+    type: :date,
+    key_path: "post.created_at"
+
   set_relationship name: :comments,
     class_name: :Comment,
     default: [],
