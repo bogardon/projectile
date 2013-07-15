@@ -42,7 +42,8 @@ class Model
 
       # getter
       define_method("#{name}") do
-        self.instance_variable_set("@#{name}", self.instance_variable_get("@#{name}") || default)
+        current_value = self.instance_variable_get("@#{name}")
+        self.instance_variable_set("@#{name}", current_value.nil? ? default : current_value)
       end
 
       # setter
