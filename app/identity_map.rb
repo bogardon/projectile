@@ -18,12 +18,17 @@ module IdentityMap
       metaclass.instance_eval do
         define_method("merge_or_insert") do |json|
           return nil unless json
-          new_model = self.new json
-          return nil unless new_model.send(attr_name)
-          old_model = self.identity_map[new_model.send(attr_name)]
-          self.identity_map[new_model.send(attr_name)] = new_model unless old_model
-          old_model.merge_with_model(new_model) if old_model
-          (old_model || new_model)
+          attribute = self.attributes.find {|a| a[:name] == attr_name}
+          key_path = attribute[:key_path]
+          identity_key = json.valueForKeyPath(key_path)
+          return nil unless identity_key
+          old_model = self.identity_map[identity_key]
+          if old_model
+            old_model.merge_with_json(json)
+          else
+            self.identity_map[identity_key] = self.new json
+          end
+          self.identity_map[identity_key]
         end
       end
     end
@@ -33,18 +38,21 @@ module IdentityMap
     end
   end
 
-  def merge_with_model(model)
-    return false unless self.is_a?(model.class)
+  def merge_with_json(json)
     self.class.relationships.each do |relationship|
       name = relationship[:name]
-      model_value = model.instance_variable_get("@#{name}")
-      self.send("#{name}=", model_value) unless model_value.nil?
+      default = relationship[:default]
+      key_path = relationship[:key_path]
+      json_value = json.valueForKeyPath(key_path)
+      self.send("#{name}=", json_value) unless json_value.nil?
     end
 
     self.class.attributes.each do |attribute|
       name = attribute[:name]
-      model_value = model.instance_variable_get("@#{name}")
-      self.send("#{name}=", model_value) unless model_value.nil?
+      default = attribute[:default]
+      key_path = attribute[:key_path]
+      json_value = json.valueForKeyPath(key_path)
+      self.send("#{name}=", json_value) unless json_value.nil?
     end
   end
 
