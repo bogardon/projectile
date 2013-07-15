@@ -40,12 +40,6 @@ class Model
 
       attr_accessor name
 
-      # getter
-      define_method("#{name}") do
-        current_value = self.instance_variable_get("@#{name}")
-        self.instance_variable_set("@#{name}", current_value.nil? ? default : current_value)
-      end
-
       # setter
       define_method("#{name}=") do |value|
         transformer = self.class.value_transformers[type][:to]
@@ -69,11 +63,6 @@ class Model
       relationship[:key_path] ||= name
 
       attr_accessor name
-
-      # getter
-      define_method("#{name}") do
-        self.instance_variable_set("@#{name}", self.instance_variable_get("@#{name}") || default)
-      end
 
       # setter
       define_method("#{name}=") do |value|
@@ -155,16 +144,20 @@ class Model
   def initialize(json={})
     self.class.relationships.each do |relationship|
       name = relationship[:name]
+      default = relationship[:default]
       key_path = relationship[:key_path]
       json_value = json.valueForKeyPath(key_path)
-      self.send("#{name}=", json_value) unless json_value.nil?
+      value_to_send = json_value.nil? ? default : json_value
+      self.send("#{name}=", value_to_send) unless value_to_send.nil?
     end
 
     self.class.attributes.each do |attribute|
       name = attribute[:name]
+      default = attribute[:default]
       key_path = attribute[:key_path]
       json_value = json.valueForKeyPath(key_path)
-      self.send("#{name}=", json_value) unless json_value.nil?
+      value_to_send = json_value.nil? ? default : json_value
+      self.send("#{name}=", value_to_send) unless value_to_send.nil?
     end
   end
 end
