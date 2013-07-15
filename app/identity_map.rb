@@ -15,10 +15,6 @@ module IdentityMap
         self.send(attr_name) == other.send(attr_name)
       end
 
-      define_method("hash") do
-        self.send(attr_name).hash
-      end
-
       metaclass.instance_eval do
         define_method("merge_or_insert") do |json|
           return nil unless json

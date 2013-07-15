@@ -37,6 +37,7 @@ describe "Identity Map" do
     it "should have correct values in identity map" do
       Post.identity_map.count.should == 1
       Comment.identity_map.count.should == 2
+      @post1.should == @post2
     end
 
     it "should merge in new value" do
