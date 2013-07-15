@@ -24,35 +24,36 @@ module IdentityMap
           return nil unless identity_key
           old_model = self.identity_map[identity_key]
           if old_model
-            old_model.merge_with_json(json)
+            self.merge_model_with_json(old_model, json)
           else
             self.identity_map[identity_key] = self.new json
           end
           self.identity_map[identity_key]
         end
       end
+
+    end
+
+    def merge_model_with_json(model, json)
+      self.relationships.each do |relationship|
+        name = relationship[:name]
+        default = relationship[:default]
+        key_path = relationship[:key_path]
+        json_value = json.valueForKeyPath(key_path)
+        model.send("#{name}=", json_value) unless json_value.nil?
+      end
+
+      self.attributes.each do |attribute|
+        name = attribute[:name]
+        default = attribute[:default]
+        key_path = attribute[:key_path]
+        json_value = json.valueForKeyPath(key_path)
+        model.send("#{name}=", json_value) unless json_value.nil?
+      end
     end
 
     def identity_map
       @identity_map ||= Hash.new
-    end
-  end
-
-  def merge_with_json(json)
-    self.class.relationships.each do |relationship|
-      name = relationship[:name]
-      default = relationship[:default]
-      key_path = relationship[:key_path]
-      json_value = json.valueForKeyPath(key_path)
-      self.send("#{name}=", json_value) unless json_value.nil?
-    end
-
-    self.class.attributes.each do |attribute|
-      name = attribute[:name]
-      default = attribute[:default]
-      key_path = attribute[:key_path]
-      json_value = json.valueForKeyPath(key_path)
-      self.send("#{name}=", json_value) unless json_value.nil?
     end
   end
 
