@@ -142,9 +142,6 @@ class Model
 
       model_value = self.send("#{name}")
 
-      # avoid infinite loop
-      next if serialized.include?(model_value)
-
       components = key_path.split(".")
       inner_hash = hash
       components.each_with_index do |component, index|
