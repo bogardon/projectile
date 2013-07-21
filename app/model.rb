@@ -108,7 +108,7 @@ class Model
     end
   end
 
-  def to_hash
+  def to_hash(serialized=[self])
     # TODO
     hash = {}
     self.class.get_attributes.each do |attribute|
@@ -141,15 +141,18 @@ class Model
 
       model_value = self.send("#{name}")
 
+      # avoid infinite loop
+      next if serialized.include?(model_value)
+
       components = key_path.split(".")
       inner_hash = hash
       components.each_with_index do |component, index|
         if index == components.count-1
           inner_hash[component] = case model_value
           when Array
-            model_value.map {|e| e.to_hash}
+            model_value.map {|e| e.to_hash(serialized << model_value)}
           when Model
-            model_value.to_hash
+            model_value.to_hash(serialized << model_value)
           else
           end
         else
