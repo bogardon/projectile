@@ -108,10 +108,10 @@ class Model
     end
   end
 
-  def to_hash(serialized=[])
-    serialized << self
-
+  def to_hash(serialized_hash_by_model={})
     hash = {}
+    serialized_hash_by_model[self] = hash
+
     self.class.get_attributes.each do |attribute|
       name = attribute[:name]
       key_path = attribute[:key_path]
@@ -120,6 +120,7 @@ class Model
 
       # grab value
       model_value = self.send("#{name}")
+      next unless model_value
 
       # create intermediate hashes
       components = key_path.split(".")
@@ -141,6 +142,7 @@ class Model
       class_name = relationship[:class_name]
 
       model_value = self.send("#{name}")
+      next unless model_value
 
       components = key_path.split(".")
       inner_hash = hash
@@ -148,11 +150,11 @@ class Model
         if index == components.count-1
           inner_hash[component] = case model_value
           when Array
-            model_value.map do |e|
-              serialized.include?(e) ? nil : e.to_hash(serialized)
+            model_value.compact.map do |e|
+              serialized_hash_by_model[e] ? serialized_hash_by_model[e].clone : e.to_hash(serialized_hash_by_model)
             end
           when Model
-            serialized.include?(model_value) ? nil : model_value.to_hash(serialized)
+            serialized_hash_by_model[model_value] ? serialized_hash_by_model[model_value].clone : model_value.to_hash(serialized_hash_by_model)
           else
           end
         else
