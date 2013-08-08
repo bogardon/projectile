@@ -57,7 +57,7 @@ class Model
       name = attribute[:name]
       type = attribute[:type]
       default = attribute[:default]
-      attribute[:key_path] ||= name
+      attribute[:key_path] ||= name.to_s
 
       attr_accessor name
 
@@ -81,7 +81,7 @@ class Model
       name = relationship[:name]
       class_name = relationship[:class_name]
       default = relationship[:default]
-      relationship[:key_path] ||= name
+      relationship[:key_path] ||= name.to_s
 
       attr_accessor name
 
