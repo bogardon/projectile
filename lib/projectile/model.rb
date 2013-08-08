@@ -120,7 +120,7 @@ class Model
 
       # grab value
       model_value = self.send("#{name}")
-      next unless model_value
+      next if model_value.nil?
 
       # create intermediate hashes
       components = key_path.split(".")
@@ -142,7 +142,7 @@ class Model
       class_name = relationship[:class_name]
 
       model_value = self.send("#{name}")
-      next unless model_value
+      next if model_value.nil?
 
       components = key_path.split(".")
       inner_hash = hash
